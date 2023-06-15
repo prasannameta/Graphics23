@@ -24,7 +24,9 @@ class MyWindow : Window {
       mStride = mBmp.BackBufferStride;
       image.Source = mBmp;
       Content = image;
-
+      MouseDown += OnMouseDown;
+      MouseUp += OnMouseUp;
+      MouseMove += OnMouseMove;
       DrawMandelbrot (-0.5, 0, 1);
    }
 
@@ -56,19 +58,48 @@ class MyWindow : Window {
       return 0;
    }
 
-   void OnMouseMove (object sender, MouseEventArgs e) {
+   void OnMouseDown (object sender, MouseButtonEventArgs e) {
       if (e.LeftButton == MouseButtonState.Pressed) {
-         try {
-            mBmp.Lock ();
-            mBase = mBmp.BackBuffer;
-            var pt = e.GetPosition (this);
-            int x = (int)pt.X, y = (int)pt.Y;
-            SetPixel (x, y, 255);
-            mBmp.AddDirtyRect (new Int32Rect (x, y, 1, 1));
-         } finally {
-            mBmp.Unlock ();
-         }
+         if (N1.X == 0 || N1.Y == 0) N1 = e.GetPosition (this);
+         var pt = e.GetPosition (this);
+         if (N1.X != pt.X || N1.Y != pt.Y) N2 = pt;
+         DrawLine (N1, N2);
       }
+   }
+
+   void OnMouseUp (object sender, MouseButtonEventArgs e) {
+      if (e.LeftButton == MouseButtonState.Released)
+         N1 = N2 = new Point (0, 0);
+   }
+
+   void OnMouseMove (object sender, MouseEventArgs e) {
+      try {
+         if (N1.X >= 0 && N1.Y >= 0) {
+            var pt = e.GetPosition (this);
+            points.Add (pt);
+         }
+      } finally { }
+   }
+
+   void DrawLine (Point n1, Point n2) {
+      if (N1.X == 0 || N2.X == 0) return;
+      try {
+         mBmp.Lock ();
+         mBase = mBmp.BackBuffer;
+         //m = (y2 - y1) / (x2 - x1);
+         SetPixel ((int)n1.X, (int)n1.Y, 255);
+         mBmp.AddDirtyRect (new Int32Rect ((int)n1.X, (int)n1.Y, 1, 1));
+         foreach (var pt in points) {
+            SetPixel ((int)pt.X, (int)pt.Y, 255);
+            mBmp.AddDirtyRect (new Int32Rect ((int)pt.X, (int)pt.Y, 1, 1));
+         }
+         SetPixel ((int)n2.X, (int)n2.Y, 255);
+         mBmp.AddDirtyRect (new Int32Rect ((int)n2.X, (int)n2.Y, 1, 1));
+      } finally {
+         mBmp.Unlock ();
+         N1 = N2 = new Point (0, 0);
+      }
+
    }
 
    void DrawGraySquare () {
@@ -96,6 +127,8 @@ class MyWindow : Window {
    WriteableBitmap mBmp;
    int mStride;
    nint mBase;
+   Point N1, N2;
+   List<Point> points = new List<Point> ();
 }
 
 internal class Program {
